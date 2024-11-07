@@ -1,7 +1,13 @@
+# AWS Cloud Security Posture Assessment Tool - University of Derby.
+# This tool is developed for a research project at University of Derby.
+# Author: Kyaw Htet Aung 
+# University of Derby
+
 # aws_scanner.py
 
 import boto3
-from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError
+from botocore.exceptions import ClientError
+from datetime import datetime
 
 class AWSScanner:
     def __init__(self, profile_name, region_name):
@@ -111,6 +117,51 @@ class AWSScanner:
                 print("CloudTrail is enabled.")
         except ClientError as e:
             print(f"Error checking CloudTrail: {e}")
+
+    def check_overly_permissive_user_policies(self):
+        print("Checking for IAM users with directly attached overly permissive policies...")
+        findings = []
+        try:
+            users = self.iam.list_users()
+            for user in users['Users']:
+                policies = self.iam.list_attached_user_policies(UserName=user['UserName'])
+                for policy in policies['AttachedPolicies']:
+                    policy_details = self.iam.get_policy(PolicyArn=policy['PolicyArn'])
+                    policy_name = policy_details['Policy']['PolicyName']
+                    if 'AdministratorAccess' in policy_name or '*' in policy_name:
+                        findings.append((user['UserName'], policy_name))
+                        print(f"ALERT: User '{user['UserName']}' has a directly attached overly permissive policy: '{policy_name}'")
+            if not findings:
+                print("No IAM users with overly permissive policies attached directly found.")
+            else:
+                self.findings_count += len(findings)
+        except ClientError as e:
+            print(f"Error checking overly permissive IAM policies: {e}")
+
+    def check_inactive_high_privilege_roles(self, days_inactive=90):
+        print(f"Checking for high-privilege IAM roles inactive for more than {days_inactive} days...")
+        findings = []
+        try:
+            roles = self.iam.list_roles()
+            for role in roles['Roles']:
+                role_last_used = role.get('RoleLastUsed', {}).get('LastUsedDate')
+                if role_last_used:
+                    days_since_last_used = (datetime.now(role_last_used.tzinfo) - role_last_used).days
+                else:
+                    days_since_last_used = days_inactive + 1  # Mark as inactive if no usage data
+                
+                if days_since_last_used > days_inactive:
+                    policies_attached = self.iam.list_attached_role_policies(RoleName=role['RoleName'])
+                    for policy in policies_attached['AttachedPolicies']:
+                        if 'AdministratorAccess' in policy['PolicyName'] or 'FullAccess' in policy['PolicyName'] or '*' in policy['PolicyName']:
+                            findings.append((role['RoleName'], policy['PolicyName']))
+                            print(f"ALERT: Role '{role['RoleName']}' is inactive for more than {days_inactive} days and has high privileges with policy '{policy['PolicyName']}'")
+            if not findings:
+                print(f"No inactive high-privilege IAM roles found that have been inactive for more than {days_inactive} days.")
+            else:
+                self.findings_count += len(findings)
+        except ClientError as e:
+            print(f"Error checking inactive high-privilege IAM roles: {e}")
 
     def summarize_findings(self):
         if self.findings_count == 0:
