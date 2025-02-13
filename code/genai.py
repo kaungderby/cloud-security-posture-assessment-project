@@ -1,3 +1,8 @@
+# AWS Cloud Security Posture Assessment Tool - University of Derby.
+# This tool is developed for a research project at University of Derby.
+# Author: Kyaw Htet Aung 
+# University of Derby
+
 import openai
 import os
 import time
@@ -16,7 +21,7 @@ def get_openai_suggestion(finding):
         print("OpenAI API key not found. Skipping AI-generated recommendations.")
         return None
     
-    prompt = f"Provide a best practice security recommendation for the following AWS security issue: {finding}"
+    prompt = f"Provide a best practice security recommendation for the following AWS security issues: {finding}"
     models = ["gpt-4o", "gpt-3.5-turbo"]
     retries = 3  # Max retries
     wait_time = 5  # Initial wait time in seconds

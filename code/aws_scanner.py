@@ -1,3 +1,8 @@
+# AWS Cloud Security Posture Assessment Tool - University of Derby.
+# This tool is developed for a research project at University of Derby.
+# Author: Kyaw Htet Aung 
+# University of Derby
+
 import boto3
 from botocore.exceptions import ClientError
 from datetime import datetime
